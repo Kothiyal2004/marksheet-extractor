@@ -224,12 +224,3 @@ marksheet-extractor/
 ├── .env.example
 └── APPROACH.md
 ```
-
----
-
-## Security Notes
-
-- Credentials are read exclusively from the `.env` file (never hardcoded).
-- `.env` is in `.gitignore` and must never be committed.
-- Change `API_PASSWORD` and `SECRET_KEY` before any production deployment.
-- File type and size are validated before any processing occurs.
