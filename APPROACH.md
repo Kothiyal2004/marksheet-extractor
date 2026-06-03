@@ -9,7 +9,7 @@
 | File validation | Python stdlib | Extension + size check before any heavy processing |
 | PDF → images | **PyMuPDF** (fitz) @ 200 DPI | Reliable rendering of complex layouts; open-source |
 | Image preprocessing | **Pillow** | Normalise colour mode, downscale to ≤ 2048 px, contrast +20 %, sharpen |
-| LLM extraction | **Google Gemini 1.5 Flash** | Native vision; handles tables, varied layouts, multiple pages in one call |
+| LLM extraction | **Google Gemini 2.5 Flash** | Native vision; handles tables, varied layouts, multiple pages in one call |
 
 All PDF pages are sent to Gemini in a **single API call**, allowing the model to reason holistically across pages (e.g., totals on page 2, subjects on page 1).
 
@@ -58,7 +58,7 @@ final_confidence = 0.70 × llm_confidence + 0.30 × format_score
 
 ---
 
-## 3. LLM Choice: Google Gemini 1.5 Flash
+## 3. LLM Choice: Google Gemini 2.5 Flash
 
 ### Selection rationale
 
@@ -68,7 +68,7 @@ final_confidence = 0.70 × llm_confidence + 0.30 × format_score
 | **Multi-image call** | All pages in one request; holistic reasoning | — |
 | **JSON mode** | `response_mime_type="application/json"` forces valid JSON | Requires prompt engineering with others |
 | **Speed** | ~2–4 s per marksheet | GPT-4o: slower; LLaMA local: depends on GPU |
-| **Cost** | Free tier available; ~$0.075 / 1M tokens | GPT-4o: ~$5 / 1M tokens |
+| **Cost** | Free tier available; ~$0.30 / 1M tokens | GPT-4o: ~$5 / 1M tokens |
 | **Open-source compliance** | Commercial API — allowed per assignment rules | — |
 
 ### Why not GPT-4o?
