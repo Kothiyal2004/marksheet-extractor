@@ -48,7 +48,7 @@ FastAPI (app/main.py)
 ### 1 · Clone & install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Kothiyal2004/marksheet-extractor.git
 cd marksheet-extractor
 
 python -m venv venv
