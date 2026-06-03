@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marksheet Extractor — Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* JSON syntax highlighting */
+    .json-key   { color: #7c3aed; }
+    .json-str   { color: #059669; }
+    .json-num   { color: #2563eb; }
+    .json-bool  { color: #d97706; }
+    .json-null  { color: #9ca3af; }
+
+    /* Confidence colour coding */
+    .conf-high   { color: #16a34a; font-weight: 600; }
+    .conf-medium { color: #d97706; font-weight: 600; }
+    .conf-low    { color: #dc2626; font-weight: 600; }
+
+    /* Drag-over state */
+    #drop-zone.drag-over { border-color: #7c3aed; background: #f5f3ff; }
+
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header class="bg-white border-b shadow-sm px-6 py-4 flex items-center gap-3">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+  <div>
+    <h1 class="text-xl font-bold text-gray-800">Marksheet Extractor</h1>
+    <p class="text-xs text-gray-500">AI-powered academic document analysis · Powered by Gemini</p>
+  </div>
+  <div class="ml-auto flex gap-3">
+    <a href="/docs" target="_blank" class="text-sm text-violet-600 hover:underline">Swagger UI ↗</a>
+    <a href="/redoc" target="_blank" class="text-sm text-violet-600 hover:underline">ReDoc ↗</a>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- ── Auth card ──────────────────────────────────────────────────── -->
+  <section class="bg-white rounded-xl shadow p-6 space-y-4">
+    <h2 class="font-semibold text-gray-700 text-lg">1 · Authenticate</h2>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <input id="username" type="text" placeholder="Username" value="admin"
+        class="border rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+      <input id="password" type="password" placeholder="Password" value="admin123"
+        class="border rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-violet-400" />
+      <button id="btn-login"
+        class="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
+        Get Token
+      </button>
+    </div>
+    <div id="token-display" class="hidden">
+      <p class="text-xs text-gray-500 mb-1">Bearer token (auto-attached to requests):</p>
+      <code id="token-text" class="block bg-gray-100 rounded p-2 text-xs break-all text-gray-700"></code>
+    </div>
+    <p id="auth-error" class="hidden text-sm text-red-600"></p>
+  </section>
+
+  <!-- ── Upload card ────────────────────────────────────────────────── -->
+  <section class="bg-white rounded-xl shadow p-6 space-y-4">
+    <h2 class="font-semibold text-gray-700 text-lg">2 · Upload Marksheet</h2>
+
+    <!-- Drop zone -->
+    <div id="drop-zone"
+      class="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-violet-400 transition">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      </svg>
+      <p class="text-gray-500 text-sm">Drag & drop a marksheet here, or</p>
+      <label class="mt-2 inline-block cursor-pointer bg-violet-50 hover:bg-violet-100 text-violet-700 text-sm font-medium px-4 py-2 rounded-lg transition">
+        Browse file
+        <input id="file-input" type="file" accept=".jpg,.jpeg,.png,.pdf" class="hidden" />
+      </label>
+      <p class="text-xs text-gray-400 mt-2">JPG · PNG · PDF · Max 10 MB</p>
+    </div>
+
+    <div id="file-info" class="hidden flex items-center gap-3 bg-violet-50 rounded-lg px-4 py-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-violet-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <span id="file-name" class="text-sm text-violet-800 font-medium truncate"></span>
+      <span id="file-size" class="text-xs text-violet-500 ml-auto shrink-0"></span>
+    </div>
+
+    <button id="btn-extract" disabled
+      class="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      Extract Marksheet
+    </button>
+  </section>
+
+  <!-- ── Results ────────────────────────────────────────────────────── -->
+  <section id="results-section" class="hidden space-y-4">
+
+    <!-- Summary cards -->
+    <div id="summary-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+
+    <!-- Subjects table -->
+    <div id="subjects-card" class="hidden bg-white rounded-xl shadow overflow-hidden">
+      <div class="px-6 py-4 border-b bg-gray-50">
+        <h3 class="font-semibold text-gray-700">Subject-wise Marks</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th class="px-4 py-3 text-left">Subject</th>
+              <th class="px-4 py-3 text-left">Code</th>
+              <th class="px-4 py-3 text-right">Max</th>
+              <th class="px-4 py-3 text-right">Obtained</th>
+              <th class="px-4 py-3 text-center">Grade</th>
+              <th class="px-4 py-3 text-center">Result</th>
+              <th class="px-4 py-3 text-center">Confidence</th>
+            </tr>
+          </thead>
+          <tbody id="subjects-tbody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Raw JSON -->
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+      <div class="px-6 py-4 border-b bg-gray-50 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-700">Raw JSON Response</h3>
+        <button id="btn-copy"
+          class="text-xs text-violet-600 hover:text-violet-800 border border-violet-200 px-3 py-1 rounded-lg transition">
+          Copy JSON
+        </button>
+      </div>
+      <pre id="json-output" class="p-6 text-xs bg-gray-50 max-h-96 overflow-auto"></pre>
+    </div>
+
+    <!-- Metadata -->
+    <div id="meta-card" class="bg-white rounded-xl shadow px-6 py-4 text-xs text-gray-500 flex flex-wrap gap-4"></div>
+  </section>
+
+  <!-- ── Loading overlay ───────────────────────────────────────────── -->
+  <div id="loading" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-xl">
+      <svg class="animate-spin h-10 w-10 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <p class="text-gray-700 font-medium">Analysing marksheet…</p>
+      <p class="text-gray-400 text-xs">Gemini is extracting fields — this takes a few seconds</p>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let token = null;
+let selectedFile = null;
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const btnLogin    = document.getElementById('btn-login');
+const btnExtract  = document.getElementById('btn-extract');
+const btnCopy     = document.getElementById('btn-copy');
+const fileInput   = document.getElementById('file-input');
+const dropZone    = document.getElementById('drop-zone');
+const fileInfo    = document.getElementById('file-info');
+const fileName    = document.getElementById('file-name');
+const fileSize    = document.getElementById('file-size');
+const tokenDisplay = document.getElementById('token-display');
+const tokenText   = document.getElementById('token-text');
+const authError   = document.getElementById('auth-error');
+const loading     = document.getElementById('loading');
+const resultsSection = document.getElementById('results-section');
+const jsonOutput  = document.getElementById('json-output');
+const summaryCards = document.getElementById('summary-cards');
+const subjectsCard = document.getElementById('subjects-card');
+const subjectsTbody = document.getElementById('subjects-tbody');
+const metaCard    = document.getElementById('meta-card');
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+btnLogin.addEventListener('click', async () => {
+  authError.classList.add('hidden');
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  try {
+    const resp = await fetch('/auth/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({username, password}),
+    });
+    if (!resp.ok) { throw new Error(await resp.text()); }
+    const data = await resp.json();
+    token = data.access_token;
+    tokenText.textContent = token;
+    tokenDisplay.classList.remove('hidden');
+    updateExtractBtn();
+  } catch (e) {
+    authError.textContent = 'Login failed — check your credentials.';
+    authError.classList.remove('hidden');
+  }
+});
+
+// ── File selection ─────────────────────────────────────────────────────────
+function setFile(file) {
+  selectedFile = file;
+  fileName.textContent = file.name;
+  fileSize.textContent = formatBytes(file.size);
+  fileInfo.classList.remove('hidden');
+  updateExtractBtn();
+}
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) setFile(fileInput.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+});
+
+// ── Extract ────────────────────────────────────────────────────────────────
+btnExtract.addEventListener('click', async () => {
+  if (!token || !selectedFile) return;
+  loading.classList.remove('hidden');
+  resultsSection.classList.add('hidden');
+
+  try {
+    const form = new FormData();
+    form.append('file', selectedFile);
+
+    const resp = await fetch('/api/v1/extract', {
+      method: 'POST',
+      headers: {'Authorization': `Bearer ${token}`},
+      body: form,
+    });
+
+    const data = await resp.json();
+    loading.classList.add('hidden');
+
+    if (!resp.ok) {
+      alert(`Error ${resp.status}: ${data.detail || JSON.stringify(data)}`);
+      return;
+    }
+    renderResults(data);
+  } catch (e) {
+    loading.classList.add('hidden');
+    alert('Request failed: ' + e.message);
+  }
+});
+
+// ── Copy JSON ──────────────────────────────────────────────────────────────
+btnCopy.addEventListener('click', () => {
+  navigator.clipboard.writeText(jsonOutput.dataset.raw || '').then(() => {
+    btnCopy.textContent = 'Copied!';
+    setTimeout(() => (btnCopy.textContent = 'Copy JSON'), 2000);
+  });
+});
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderResults(data) {
+  // Raw JSON
+  jsonOutput.dataset.raw = JSON.stringify(data, null, 2);
+  jsonOutput.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+
+  // Summary cards
+  const cd = data.candidate_details;
+  const ov = data.overall_result;
+
+  summaryCards.innerHTML = [
+    makeCard('Name', cd.name),
+    makeCard('Roll No.', cd.roll_no),
+    makeCard('Board / University', cd.board_university),
+    makeCard('Result', ov.result_status),
+    makeCard('Percentage', ov.percentage, v => v != null ? v + '%' : null),
+    makeCard('Division', ov.division),
+    makeCard('Exam Year', cd.exam_year),
+    makeCard('Institution', cd.institution),
+  ].join('');
+
+  // Subjects table
+  if (data.subjects && data.subjects.length) {
+    subjectsTbody.innerHTML = data.subjects.map(s => {
+      const avgConf = avgSubjectConfidence(s);
+      return `<tr class="hover:bg-gray-50">
+        <td class="px-4 py-2.5 font-medium text-gray-800">${fv(s.subject_name)}</td>
+        <td class="px-4 py-2.5 text-gray-500">${fv(s.subject_code)}</td>
+        <td class="px-4 py-2.5 text-right text-gray-700">${fv(s.max_marks)}</td>
+        <td class="px-4 py-2.5 text-right text-gray-700 font-medium">${fv(s.obtained_marks)}</td>
+        <td class="px-4 py-2.5 text-center">${fv(s.grade) !== '—' ? `<span class="bg-violet-100 text-violet-700 px-2 py-0.5 rounded text-xs font-medium">${fv(s.grade)}</span>` : '—'}</td>
+        <td class="px-4 py-2.5 text-center">${resultBadge(s.pass_fail?.value)}</td>
+        <td class="px-4 py-2.5 text-center ${confClass(avgConf)}">${(avgConf * 100).toFixed(0)}%</td>
+      </tr>`;
+    }).join('');
+    subjectsCard.classList.remove('hidden');
+  } else {
+    subjectsCard.classList.add('hidden');
+  }
+
+  // Metadata
+  const meta = data.processing_metadata;
+  metaCard.innerHTML = [
+    `<span>Model: <b>${meta.model_used}</b></span>`,
+    `<span>Pages: <b>${meta.pages_processed}</b></span>`,
+    `<span>Time: <b>${meta.processing_time_ms} ms</b></span>`,
+    `<span>File type: <b>${meta.file_type}</b></span>`,
+    `<span>File: <b>${meta.file_name}</b></span>`,
+    `<span>Size: <b>${formatBytes(meta.file_size_bytes)}</b></span>`,
+  ].join('');
+
+  resultsSection.classList.remove('hidden');
+  resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function makeCard(label, field, fmt) {
+  if (!field) return '';
+  const raw = field.value;
+  const display = fmt ? (fmt(raw) ?? '—') : (raw != null ? raw : '—');
+  const conf = field.confidence ?? 0;
+  return `<div class="bg-white rounded-xl shadow p-4">
+    <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">${label}</p>
+    <p class="font-semibold text-gray-800 truncate" title="${display}">${display}</p>
+    <p class="text-xs mt-1 ${confClass(conf)}">Confidence: ${(conf * 100).toFixed(0)}%</p>
+  </div>`;
+}
+
+function fv(field) {
+  if (!field || field.value == null) return '—';
+  return field.value;
+}
+
+function avgSubjectConfidence(s) {
+  const keys = ['subject_name','max_marks','obtained_marks','grade','pass_fail'];
+  const vals = keys.map(k => s[k]?.confidence ?? 0);
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function confClass(c) {
+  if (c >= 0.80) return 'conf-high';
+  if (c >= 0.50) return 'conf-medium';
+  return 'conf-low';
+}
+
+function resultBadge(val) {
+  if (!val) return '—';
+  const colour = val.toUpperCase().includes('PASS') ? 'green' : 'red';
+  return `<span class="bg-${colour}-100 text-${colour}-700 px-2 py-0.5 rounded text-xs font-medium">${val}</span>`;
+}
+
+function updateExtractBtn() {
+  btnExtract.disabled = !(token && selectedFile);
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(2) + ' MB';
+}
+
+// Simple JSON syntax highlighter
+function syntaxHighlight(json) {
+  return json.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    match => {
+      if (/^"/.test(match)) {
+        return /:$/.test(match)
+          ? `<span class="json-key">${match}</span>`
+          : `<span class="json-str">${match}</span>`;
+      }
+      if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+      if (/null/.test(match)) return `<span class="json-null">${match}</span>`;
+      return `<span class="json-num">${match}</span>`;
+    }
+  );
+}
+</script>
+</body>
+</html>
